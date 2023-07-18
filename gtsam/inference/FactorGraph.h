@@ -47,6 +47,8 @@ typedef FastVector<FactorIndex> FactorIndices;
 template <class CLIQUE>
 class BayesTree;
 
+class HybridValues;
+
 /** Helper */
 template <class C>
 class CRefCallPushBack {
@@ -116,7 +118,7 @@ class FactorGraph {
   using HasDerivedValueType = typename std::enable_if<
       std::is_base_of<FactorType, typename T::value_type>::value>::type;
 
-  /// Check if T has a value_type derived from FactorType.
+  /// Check if T has a pointer type derived from FactorType.
   template <typename T>
   using HasDerivedElementType = typename std::enable_if<std::is_base_of<
       FactorType, typename T::value_type::element_type>::value>::type;
@@ -154,10 +156,22 @@ class FactorGraph {
   /// @}
 
  public:
+  /// @name Constructors
+  /// @{
+
   /// Default destructor
-  // Public and virtual so boost serialization can call it.
+  /// Public and virtual so boost serialization can call it.
   virtual ~FactorGraph() = default;
 
+  /**
+   * Constructor that takes an initializer list of shared pointers.
+   *  FactorGraph fg = {make_shared<MyFactor>(), ...};
+   */
+  template <class DERIVEDFACTOR, typename = IsDerived<DERIVEDFACTOR>>
+  FactorGraph(std::initializer_list<boost::shared_ptr<DERIVEDFACTOR>> sharedFactors)
+      : factors_(sharedFactors) {}
+
+  /// @}
   /// @name Adding Single Factors
   /// @{
 
@@ -347,6 +361,9 @@ class FactorGraph {
   /** Get the last factor */
   sharedFactor back() const { return factors_.back(); }
 
+  /** Add error for all factors. */
+  double error(const HybridValues &values) const;
+
   /// @}
   /// @name Modifying Factor Graphs (imperative, discouraged)
   /// @{
@@ -361,7 +378,7 @@ class FactorGraph {
    * less than the original, factors at the end will be removed.  If the new
    * size is larger than the original, null factors will be appended.
    */
-  void resize(size_t size) { factors_.resize(size); }
+  virtual void resize(size_t size) { factors_.resize(size); }
 
   /** delete factor without re-arranging indexes by inserting a nullptr pointer
    */

@@ -17,18 +17,18 @@
  * @date    Jan 30, 2012
  */
 
-#include <boost/assign/std/vector.hpp>
-using namespace boost::assign;
-
+// #define DT_DEBUG_MEMORY
+// #define GTSAM_DT_NO_PRUNING
+#define DISABLE_DOT
 #include <CppUnitLite/TestHarness.h>
 #include <gtsam/base/Testable.h>
+#include <gtsam/base/serializationTestHelpers.h>
+#include <gtsam/discrete/DecisionTree-inl.h>
 #include <gtsam/discrete/Signature.h>
 
-// #define DT_DEBUG_MEMORY
-// #define DT_NO_PRUNING
-#define DISABLE_DOT
-#include <gtsam/discrete/DecisionTree-inl.h>
-using namespace std;
+using std::vector;
+using std::string;
+using std::map;
 using namespace gtsam;
 
 template <typename T>
@@ -88,6 +88,7 @@ struct DT : public DecisionTree<string, int> {
     auto valueFormatter = [](const int& v) {
       return (boost::format("%d") % v).str();
     };
+    std::cout << s;
     Base::print("", keyFormatter, valueFormatter);
   }
   /// Equality method customized to int node type
@@ -148,9 +149,9 @@ TEST(DecisionTree, example) {
   DOT(notb);
 
   // Check supplying empty trees yields an exception
-  CHECK_EXCEPTION(apply(empty, &Ring::id), std::runtime_error);
-  CHECK_EXCEPTION(apply(empty, a, &Ring::mul), std::runtime_error);
-  CHECK_EXCEPTION(apply(a, empty, &Ring::mul), std::runtime_error);
+  CHECK_EXCEPTION(gtsam::apply(empty, &Ring::id), std::runtime_error);
+  CHECK_EXCEPTION(gtsam::apply(empty, a, &Ring::mul), std::runtime_error);
+  CHECK_EXCEPTION(gtsam::apply(a, empty, &Ring::mul), std::runtime_error);
 
   // apply, two nodes, in natural order
   DT anotb = apply(a, notb, &Ring::mul);
@@ -281,8 +282,7 @@ TEST(DecisionTree, Compose) {
   DT f1(B, DT(A, 0, 1), DT(A, 2, 3));
 
   // Create from string
-  vector<DT::LabelC> keys;
-  keys += DT::LabelC(A, 2), DT::LabelC(B, 2);
+  vector<DT::LabelC> keys{DT::LabelC(A, 2), DT::LabelC(B, 2)};
   DT f2(keys, "0 2 1 3");
   EXPECT(assert_equal(f2, f1, 1e-9));
 
@@ -292,7 +292,7 @@ TEST(DecisionTree, Compose) {
   DOT(f4);
 
   // a bigger tree
-  keys += DT::LabelC(C, 2);
+  keys.push_back(DT::LabelC(C, 2));
   DT f5(keys, "0 4 2 6 1 5 3 7");
   EXPECT(assert_equal(f5, f4, 1e-9));
   DOT(f5);
@@ -321,6 +321,49 @@ TEST(DecisionTree, Containers) {
 }
 
 /* ************************************************************************** */
+// Test nrAssignments.
+TEST(DecisionTree, NrAssignments) {
+  const std::pair<string, size_t> A("A", 2), B("B", 2), C("C", 2);
+  DT tree({A, B, C}, "1 1 1 1 1 1 1 1");
+  EXPECT(tree.root_->isLeaf());
+  auto leaf = boost::dynamic_pointer_cast<const DT::Leaf>(tree.root_);
+  EXPECT_LONGS_EQUAL(8, leaf->nrAssignments());
+
+  DT tree2({C, B, A}, "1 1 1 2 3 4 5 5");
+  /* The tree is
+    Choice(C) 
+    0 Choice(B) 
+    0 0 Leaf 1
+    0 1 Choice(A) 
+    0 1 0 Leaf 1
+    0 1 1 Leaf 2
+    1 Choice(B) 
+    1 0 Choice(A) 
+    1 0 0 Leaf 3
+    1 0 1 Leaf 4
+    1 1 Leaf 5
+  */
+
+  auto root = boost::dynamic_pointer_cast<const DT::Choice>(tree2.root_);
+  CHECK(root);
+  auto choice0 = boost::dynamic_pointer_cast<const DT::Choice>(root->branches()[0]);
+  CHECK(choice0);
+  EXPECT(choice0->branches()[0]->isLeaf());
+  auto choice00 = boost::dynamic_pointer_cast<const DT::Leaf>(choice0->branches()[0]);
+  CHECK(choice00);
+  EXPECT_LONGS_EQUAL(2, choice00->nrAssignments());
+
+  auto choice1 = boost::dynamic_pointer_cast<const DT::Choice>(root->branches()[1]);
+  CHECK(choice1);
+  auto choice10 = boost::dynamic_pointer_cast<const DT::Choice>(choice1->branches()[0]);
+  CHECK(choice10);
+  auto choice11 = boost::dynamic_pointer_cast<const DT::Leaf>(choice1->branches()[1]);
+  CHECK(choice11);
+  EXPECT(choice11->isLeaf());
+  EXPECT_LONGS_EQUAL(2, choice11->nrAssignments());
+}
+
+/* ************************************************************************** */
 // Test visit.
 TEST(DecisionTree, visit) {
   // Create small two-level tree
@@ -342,6 +385,44 @@ TEST(DecisionTree, visitWith) {
   auto visitor = [&](const Assignment<string>& choices, int y) { sum += y; };
   tree.visitWith(visitor);
   EXPECT_DOUBLES_EQUAL(6.0, sum, 1e-9);
+}
+
+/* ************************************************************************** */
+// Test visit, with Choices argument.
+TEST(DecisionTree, VisitWithPruned) {
+  // Create pruned tree
+  std::pair<string, size_t> A("A", 2), B("B", 2), C("C", 2);
+  std::vector<std::pair<string, size_t>> labels = {C, B, A};
+  std::vector<int> nodes = {0, 0, 2, 3, 4, 4, 6, 7};
+  DT tree(labels, nodes);
+
+  std::vector<Assignment<string>> choices;
+  auto func = [&](const Assignment<string>& choice, const int& d) {
+    choices.push_back(choice);
+  };
+  tree.visitWith(func);
+
+  EXPECT_LONGS_EQUAL(6, choices.size());
+
+  Assignment<string> expectedAssignment;
+
+  expectedAssignment = {{"B", 0}, {"C", 0}};
+  EXPECT(expectedAssignment == choices.at(0));
+
+  expectedAssignment = {{"A", 0}, {"B", 1}, {"C", 0}};
+  EXPECT(expectedAssignment == choices.at(1));
+
+  expectedAssignment = {{"A", 1}, {"B", 1}, {"C", 0}};
+  EXPECT(expectedAssignment == choices.at(2));
+
+  expectedAssignment = {{"B", 0}, {"C", 1}};
+  EXPECT(expectedAssignment == choices.at(3));
+
+  expectedAssignment = {{"A", 0}, {"B", 1}, {"C", 1}};
+  EXPECT(expectedAssignment == choices.at(4));
+
+  expectedAssignment = {{"A", 1}, {"B", 1}, {"C", 1}};
+  EXPECT(expectedAssignment == choices.at(5));
 }
 
 /* ************************************************************************** */
@@ -392,8 +473,8 @@ TEST(DecisionTree, unzip) {
 // Test thresholding.
 TEST(DecisionTree, threshold) {
   // Create three level tree
-  vector<DT::LabelC> keys;
-  keys += DT::LabelC("C", 2), DT::LabelC("B", 2), DT::LabelC("A", 2);
+  const vector<DT::LabelC> keys{DT::LabelC("C", 2), DT::LabelC("B", 2),
+                                DT::LabelC("A", 2)};
   DT tree(keys, "0 1 2 3 4 5 6 7");
 
   // Check number of leaves equal to zero
@@ -409,6 +490,43 @@ TEST(DecisionTree, threshold) {
   // Check number of leaves equal to zero now = 2
   // Note: it is 2, because the pruned branches are counted as 1!
   EXPECT_LONGS_EQUAL(2, thresholded.fold(count, 0));
+}
+
+/* ************************************************************************** */
+// Test apply with assignment.
+TEST(DecisionTree, ApplyWithAssignment) {
+  // Create three level tree
+  const vector<DT::LabelC> keys{DT::LabelC("C", 2), DT::LabelC("B", 2),
+                                DT::LabelC("A", 2)};
+  DT tree(keys, "1 2 3 4 5 6 7 8");
+
+  DecisionTree<string, double> probTree(
+      keys, "0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08");
+  double threshold = 0.045;
+
+  // We test pruning one tree by indexing into another.
+  auto pruner = [&](const Assignment<string>& choices, const int& x) {
+    // Prune out all the leaves with even numbers
+    if (probTree(choices) < threshold) {
+      return 0;
+    } else {
+      return x;
+    }
+  };
+  DT prunedTree = tree.apply(pruner);
+
+  DT expectedTree(keys, "0 0 0 0 5 6 7 8");
+  EXPECT(assert_equal(expectedTree, prunedTree));
+
+  size_t count = 0;
+  auto counter = [&](const Assignment<string>& choices, const int& x) {
+    count += 1;
+    return x;
+  };
+  DT prunedTree2 = prunedTree.apply(counter);
+
+  // Check if apply doesn't enumerate all leaves.
+  EXPECT_LONGS_EQUAL(5, count);
 }
 
 /* ************************************************************************* */

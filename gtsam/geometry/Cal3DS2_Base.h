@@ -21,12 +21,13 @@
 
 #include <gtsam/geometry/Cal3.h>
 #include <gtsam/geometry/Point2.h>
+#include <boost/shared_ptr.hpp>
 
 namespace gtsam {
 
 /**
  * @brief Calibration of a camera with radial distortion
- * @addtogroup geometry
+ * @ingroup geometry
  * \nosubgrouping
  *
  * Uses same distortionmodel as OpenCV, with

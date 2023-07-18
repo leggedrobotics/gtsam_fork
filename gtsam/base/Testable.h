@@ -23,7 +23,7 @@
  *     void print(const std::string& name) const = 0;
  *
  * equality up to tolerance
- * tricky to implement, see NoiseModelFactor1 for an example
+ * tricky to implement, see PriorFactor for an example
  * equals is not supposed to print out *anything*, just return true|false
  *     bool equals(const Derived& expected, double tol) const = 0;
  *
@@ -51,7 +51,7 @@ namespace gtsam {
    * tests and in generic algorithms.
    *
    * See macros for details on using this structure
-   * @addtogroup base
+   * @ingroup base
    * @tparam T is the objectype this constrains to be testable - assumes print() and equals()
    */
   template <class T>

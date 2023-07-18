@@ -60,6 +60,7 @@ GTSAM_MAKE_VECTOR_DEFS(9)
 GTSAM_MAKE_VECTOR_DEFS(10)
 GTSAM_MAKE_VECTOR_DEFS(11)
 GTSAM_MAKE_VECTOR_DEFS(12)
+GTSAM_MAKE_VECTOR_DEFS(15)
 
 typedef Eigen::VectorBlock<Vector> SubVector;
 typedef Eigen::VectorBlock<const Vector> ConstSubVector;
@@ -264,46 +265,4 @@ GTSAM_EXPORT Vector concatVectors(const std::list<Vector>& vs);
  * concatenate Vectors
  */
 GTSAM_EXPORT Vector concatVectors(size_t nrVectors, ...);
-} // namespace gtsam
-
-#include <boost/serialization/nvp.hpp>
-#include <boost/serialization/array.hpp>
-#include <boost/serialization/split_free.hpp>
-
-namespace boost {
-  namespace serialization {
-
-    // split version - copies into an STL vector for serialization
-    template<class Archive>
-    void save(Archive & ar, const gtsam::Vector & v, unsigned int /*version*/) {
-      const size_t size = v.size();
-      ar << BOOST_SERIALIZATION_NVP(size);
-      ar << make_nvp("data", make_array(v.data(), v.size()));
-    }
-
-    template<class Archive>
-    void load(Archive & ar, gtsam::Vector & v, unsigned int /*version*/) {
-      size_t size;
-      ar >> BOOST_SERIALIZATION_NVP(size);
-      v.resize(size);
-      ar >> make_nvp("data", make_array(v.data(), v.size()));
-    }
-
-    // split version - copies into an STL vector for serialization
-    template<class Archive, int D>
-    void save(Archive & ar, const Eigen::Matrix<double,D,1> & v, unsigned int /*version*/) {
-      ar << make_nvp("data", make_array(v.data(), v.RowsAtCompileTime));
-    }
-
-    template<class Archive, int D>
-    void load(Archive & ar, Eigen::Matrix<double,D,1> & v, unsigned int /*version*/) {
-      ar >> make_nvp("data", make_array(v.data(), v.RowsAtCompileTime));
-    }
-
-  } // namespace serialization
-} // namespace boost
-
-BOOST_SERIALIZATION_SPLIT_FREE(gtsam::Vector)
-BOOST_SERIALIZATION_SPLIT_FREE(gtsam::Vector2)
-BOOST_SERIALIZATION_SPLIT_FREE(gtsam::Vector3)
-BOOST_SERIALIZATION_SPLIT_FREE(gtsam::Vector6)
+}  // namespace gtsam

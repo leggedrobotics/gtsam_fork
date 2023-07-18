@@ -26,11 +26,11 @@ namespace gtsam {
 /**
  * A pinhole camera class that has a Pose3 and a Calibration.
  * Use PinholePose if you will not be optimizing for Calibration
- * @addtogroup geometry
+ * @ingroup geometry
  * \nosubgrouping
  */
 template<typename Calibration>
-class GTSAM_EXPORT PinholeCamera: public PinholeBaseK<Calibration> {
+class PinholeCamera: public PinholeBaseK<Calibration> {
 
 public:
 
@@ -213,7 +213,7 @@ public:
   }
 
   /// for Canonical
-  static PinholeCamera identity() {
+  static PinholeCamera Identity() {
     return PinholeCamera(); // assumes that the default constructor is valid
   }
 
@@ -230,13 +230,15 @@ public:
   Point2 _project2(const POINT& pw, OptionalJacobian<2, dimension> Dcamera,
       OptionalJacobian<2, FixedDimension<POINT>::value> Dpoint) const {
     // We just call 3-derivative version in Base
-    Matrix26 Dpose;
-    Eigen::Matrix<double, 2, DimK> Dcal;
-    Point2 pi = Base::project(pw, Dcamera ? &Dpose : 0, Dpoint,
-        Dcamera ? &Dcal : 0);
-    if (Dcamera)
+    if (Dcamera){
+      Matrix26 Dpose;
+      Eigen::Matrix<double, 2, DimK> Dcal;
+      const Point2 pi = Base::project(pw, Dpose, Dpoint, Dcal);
       *Dcamera << Dpose, Dcal;
-    return pi;
+      return pi;
+    } else {
+      return Base::project(pw, boost::none, Dpoint, boost::none);
+    }
   }
 
   /// project a 3D point from world coordinates into the image

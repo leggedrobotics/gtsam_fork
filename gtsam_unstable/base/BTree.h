@@ -17,6 +17,8 @@
  * @date Feb 3, 2010
  */
 
+#pragma once
+
 #include <stack>
 #include <sstream>
 #include <boost/shared_ptr.hpp>
@@ -26,7 +28,7 @@ namespace gtsam {
 
   /**
    * @brief Binary tree
-   * @addtogroup base
+   * @ingroup base
    */
   template<class KEY, class VALUE>
   class BTree {

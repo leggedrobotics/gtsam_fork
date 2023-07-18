@@ -21,9 +21,6 @@
 #include <gtsam/discrete/DiscreteFactorGraph.h>
 #include <gtsam/inference/BayesNet.h>
 
-#include <boost/assign/std/vector.hpp>
-using namespace boost::assign;
-
 #include <CppUnitLite/TestHarness.h>
 
 #include <iostream>
@@ -158,6 +155,10 @@ TEST(DiscreteBayesTree, ThinTree) {
   DiscreteFactorGraph separatorMarginal0 =
       clique->separatorMarginal(EliminateDiscrete);
   DOUBLES_EQUAL(joint_8_12, separatorMarginal0(all1), 1e-9);
+
+  DOUBLES_EQUAL(joint_12_14, 0.1875, 1e-9);
+  DOUBLES_EQUAL(joint_8_12_14, 0.0375, 1e-9);
+  DOUBLES_EQUAL(joint_9_12_14, 0.15, 1e-9);
 
   // check separator marginal P(S9), should be P(14)
   clique = (*self.bayesTree)[9];

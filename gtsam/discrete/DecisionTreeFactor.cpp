@@ -18,6 +18,7 @@
  */
 
 #include <gtsam/base/FastSet.h>
+#include <gtsam/hybrid/HybridValues.h>
 #include <gtsam/discrete/DecisionTreeFactor.h>
 #include <gtsam/discrete/DiscreteConditional.h>
 
@@ -54,6 +55,16 @@ namespace gtsam {
       const auto& f(static_cast<const DecisionTreeFactor&>(other));
       return ADT::equals(f, tol);
     }
+  }
+
+  /* ************************************************************************ */
+  double DecisionTreeFactor::error(const DiscreteValues& values) const {
+    return -std::log(evaluate(values));
+  }
+  
+  /* ************************************************************************ */
+  double DecisionTreeFactor::error(const HybridValues& values) const {
+    return error(values.discrete());
   }
 
   /* ************************************************************************ */
@@ -156,12 +167,9 @@ namespace gtsam {
   std::vector<std::pair<DiscreteValues, double>> DecisionTreeFactor::enumerate()
       const {
     // Get all possible assignments
-    std::vector<std::pair<Key, size_t>> pairs;
-    for (auto& key : keys()) {
-      pairs.emplace_back(key, cardinalities_.at(key));
-    }
+    DiscreteKeys pairs = discreteKeys();
     // Reverse to make cartesian product output a more natural ordering.
-    std::vector<std::pair<Key, size_t>> rpairs(pairs.rbegin(), pairs.rend());
+    DiscreteKeys rpairs(pairs.rbegin(), pairs.rend());
     const auto assignments = DiscreteValues::CartesianProduct(rpairs);
 
     // Construct unordered_map with values
@@ -288,6 +296,44 @@ namespace gtsam {
       : DiscreteFactor(keys.indices()),
         AlgebraicDecisionTree<Key>(keys, table),
         cardinalities_(keys.cardinalities()) {}
+
+  /* ************************************************************************ */
+  DecisionTreeFactor DecisionTreeFactor::prune(size_t maxNrAssignments) const {
+    const size_t N = maxNrAssignments;
+
+    // Get the probabilities in the decision tree so we can threshold.
+    std::vector<double> probabilities;
+    this->visitLeaf([&](const Leaf& leaf) {
+      size_t nrAssignments = leaf.nrAssignments();
+      double prob = leaf.constant();
+      probabilities.insert(probabilities.end(), nrAssignments, prob);
+    });
+
+    // The number of probabilities can be lower than max_leaves
+    if (probabilities.size() <= N) {
+      return *this;
+    }
+
+    std::sort(probabilities.begin(), probabilities.end(),
+              std::greater<double>{});
+
+    double threshold = probabilities[N - 1];
+
+    // Now threshold the decision tree
+    size_t total = 0;
+    auto thresholdFunc = [threshold, &total, N](const double& value) {
+      if (value < threshold || total >= N) {
+        return 0.0;
+      } else {
+        total += 1;
+        return value;
+      }
+    };
+    DecisionTree<Key, double> thresholded(*this, thresholdFunc);
+
+    // Create pruned decision tree factor and return.
+    return DecisionTreeFactor(this->discreteKeys(), thresholded);
+  }
 
   /* ************************************************************************ */
 }  // namespace gtsam

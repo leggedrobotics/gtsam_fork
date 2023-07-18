@@ -78,6 +78,8 @@ using Weights = Eigen::Matrix<double, 1, -1>; /* 1xN vector */
  * @tparam M Size of the identity matrix.
  * @param w The weights of the polynomial.
  * @return Mx(M*N) kronecker product [w(0)*I, w(1)*I, ..., w(N-1)*I]
+ *
+ * @ingroup basis
  */
 template <size_t M>
 Matrix kroneckerProductIdentity(const Weights& w) {
@@ -90,9 +92,12 @@ Matrix kroneckerProductIdentity(const Weights& w) {
   return result;
 }
 
-/// CRTP Base class for function bases
+/**
+ * CRTP Base class for function bases
+ *  @ingroup basis
+ */
 template <typename DERIVED>
-class GTSAM_EXPORT Basis {
+class Basis {
  public:
   /**
    * Calculate weights for all x in vector X.
@@ -497,11 +502,6 @@ class GTSAM_EXPORT Basis {
     }
   };
 
-  // Vector version for MATLAB :-(
-  static double Derivative(double x, const Vector& p,  //
-                           OptionalJacobian</*1xN*/ -1, -1> H = boost::none) {
-    return DerivativeFunctor(x)(p.transpose(), H);
-  }
 };
 
 }  // namespace gtsam

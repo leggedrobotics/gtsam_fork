@@ -19,10 +19,12 @@
 
 #pragma once
 
+#include <gtsam/base/Testable.h>
 #include <gtsam/base/types.h>
 #include <gtsam/discrete/Assignment.h>
 
-#include <boost/function.hpp>
+#include <boost/serialization/nvp.hpp>
+#include <boost/shared_ptr.hpp>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -38,6 +40,8 @@ namespace gtsam {
    * Decision Tree
    * L = label for variables
    * Y = function range (any algebra), e.g., bool, int, double
+   *
+   * @ingroup discrete
    */
   template<typename L, typename Y>
   class DecisionTree {
@@ -54,6 +58,7 @@ namespace gtsam {
 
     /** Handy typedefs for unary and binary function types */
     using Unary = std::function<Y(const Y&)>;
+    using UnaryAssignment = std::function<Y(const Assignment<L>&, const Y&)>;
     using Binary = std::function<Y(const Y&, const Y&)>;
 
     /** A label annotated with cardinality */
@@ -103,11 +108,19 @@ namespace gtsam {
                                                  &DefaultCompare) const = 0;
       virtual const Y& operator()(const Assignment<L>& x) const = 0;
       virtual Ptr apply(const Unary& op) const = 0;
+      virtual Ptr apply(const UnaryAssignment& op,
+                        const Assignment<L>& assignment) const = 0;
       virtual Ptr apply_f_op_g(const Node&, const Binary&) const = 0;
       virtual Ptr apply_g_op_fL(const Leaf&, const Binary&) const = 0;
       virtual Ptr apply_g_op_fC(const Choice&, const Binary&) const = 0;
       virtual Ptr choose(const L& label, size_t index) const = 0;
       virtual bool isLeaf() const = 0;
+
+     private:
+      /** Serialization function */
+      friend class boost::serialization::access;
+      template <class ARCHIVE>
+      void serialize(ARCHIVE& ar, const unsigned int /*version*/) {}
     };
     /** ------------------------ Node base class --------------------------- */
 
@@ -150,7 +163,7 @@ namespace gtsam {
     /** Create a constant */
     explicit DecisionTree(const Y& y);
 
-    /** Create a new leaf function splitting on a variable */
+    /// Create tree with 2 assignments `y1`, `y2`, splitting on variable `label`
     DecisionTree(const L& label, const Y& y1, const Y& y2);
 
     /** Allow Label+Cardinality for convenience */
@@ -216,9 +229,8 @@ namespace gtsam {
     /// @name Standard Interface
     /// @{
 
-    /** Make virtual */
-    virtual ~DecisionTree() {
-    }
+    /// Make virtual
+    virtual ~DecisionTree() = default;
 
     /// Check if tree is empty.
     bool empty() const { return !root_; }
@@ -231,33 +243,57 @@ namespace gtsam {
 
     /**
      * @brief Visit all leaves in depth-first fashion.
-     * 
-     * @param f side-effect taking a value.
-     * 
-     * @note Due to pruning, leaves might not exhaust choices.
-     * 
+     *
+     * @param f (side-effect) Function taking the value of the leaf node.
+     *
+     * @note Due to pruning, the number of leaves may not be the same as the
+     * number of assignments. E.g. if we have a tree on 2 binary variables with
+     * all values being 1, then there are 2^2=4 assignments, but only 1 leaf.
+     *
      * Example:
      *   int sum = 0;
      *   auto visitor = [&](int y) { sum += y; };
-     *   tree.visitWith(visitor);
+     *   tree.visit(visitor);
      */
     template <typename Func>
     void visit(Func f) const;
 
     /**
      * @brief Visit all leaves in depth-first fashion.
-     * 
-     * @param f side-effect taking an assignment and a value.
-     * 
-     * @note Due to pruning, leaves might not exhaust choices.
-     * 
+     *
+     * @param f (side-effect) Function taking the leaf node pointer.
+     *
+     * @note Due to pruning, the number of leaves may not be the same as the
+     * number of assignments. E.g. if we have a tree on 2 binary variables with
+     * all values being 1, then there are 2^2=4 assignments, but only 1 leaf.
+     *
      * Example:
      *   int sum = 0;
-     *   auto visitor = [&](const Assignment<L>& choices, int y) { sum += y; };
+     *   auto visitor = [&](const Leaf& leaf) { sum += leaf.constant(); };
+     *   tree.visitLeaf(visitor);
+     */
+    template <typename Func>
+    void visitLeaf(Func f) const;
+
+    /**
+     * @brief Visit all leaves in depth-first fashion.
+     *
+     * @param f (side-effect) Function taking an assignment and a value.
+     *
+     * @note Due to pruning, the number of leaves may not be the same as the
+     * number of assignments. E.g. if we have a tree on 2 binary variables with
+     * all values being 1, then there are 2^2=4 assignments, but only 1 leaf.
+     *
+     * Example:
+     *   int sum = 0;
+     *   auto visitor = [&](const Assignment<L>& assignment, int y) { sum += y; };
      *   tree.visitWith(visitor);
      */
     template <typename Func>
     void visitWith(Func f) const;
+
+    /// Return the number of leaves in the tree.
+    size_t nrLeaves() const;
 
     /**
      * @brief Fold a binary function over the tree, returning accumulator.
@@ -269,7 +305,7 @@ namespace gtsam {
      * 
      * @note X is always passed by value.
      * @note Due to pruning, leaves might not exhaust choices.
-     * 
+     *
      * Example:
      *   auto add = [](const double& y, double x) { return y + x; };
      *   double sum = tree.fold(add, 0.0);
@@ -282,6 +318,16 @@ namespace gtsam {
 
     /** apply Unary operation "op" to f */
     DecisionTree apply(const Unary& op) const;
+
+    /**
+     * @brief Apply Unary operation "op" to f while also providing the
+     * corresponding assignment.
+     *
+     * @param op Function which takes Assignment<L> and Y as input and returns
+     * object of type Y.
+     * @return DecisionTree
+     */
+    DecisionTree apply(const UnaryAssignment& op) const;
 
     /** apply binary operation "op" to f and g */
     DecisionTree apply(const DecisionTree& g, const Binary& op) const;
@@ -326,7 +372,18 @@ namespace gtsam {
     compose(Iterator begin, Iterator end, const L& label) const;
 
     /// @}
+
+   private:
+    /** Serialization function */
+    friend class boost::serialization::access;
+    template <class ARCHIVE>
+    void serialize(ARCHIVE& ar, const unsigned int /*version*/) {
+      ar& BOOST_SERIALIZATION_NVP(root_);
+    }
   };  // DecisionTree
+
+  template <class L, class Y>
+  struct traits<DecisionTree<L, Y>> : public Testable<DecisionTree<L, Y>> {};
 
   /** free versions of apply */
 
@@ -334,6 +391,13 @@ namespace gtsam {
   template<typename L, typename Y>
   DecisionTree<L, Y> apply(const DecisionTree<L, Y>& f,
       const typename DecisionTree<L, Y>::Unary& op) {
+    return f.apply(op);
+  }
+
+  /// Apply unary operator `op` with Assignment to DecisionTree `f`.
+  template<typename L, typename Y>
+  DecisionTree<L, Y> apply(const DecisionTree<L, Y>& f,
+      const typename DecisionTree<L, Y>::UnaryAssignment& op) {
     return f.apply(op);
   }
 

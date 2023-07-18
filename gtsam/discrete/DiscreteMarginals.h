@@ -28,8 +28,9 @@ namespace gtsam {
 
   /**
    * A class for computing marginals of variables in a DiscreteFactorGraph
+   * @ingroup discrete
    */
-class GTSAM_EXPORT DiscreteMarginals {
+class DiscreteMarginals {
 
   protected:
 

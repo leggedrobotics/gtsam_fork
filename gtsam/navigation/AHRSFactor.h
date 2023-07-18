@@ -90,7 +90,11 @@ class GTSAM_EXPORT PreintegratedAhrsMeasurements : public PreintegratedRotation 
 
   /**
    * Add a single Gyroscope measurement to the preintegration.
-   * @param measureOmedga Measured angular velocity (in body frame)
+   * Measurements are taken to be in the sensor
+   * frame and conversion to the body frame is handled by `body_P_sensor` in
+   * `PreintegratedRotationParams` (if provided).
+   *
+   * @param measuredOmega Measured angular velocity (as given by the sensor)
    * @param deltaT Time step
    */
   void integrateMeasurement(const Vector3& measuredOmega, double deltaT);
@@ -124,10 +128,10 @@ private:
   }
 };
 
-class GTSAM_EXPORT AHRSFactor: public NoiseModelFactor3<Rot3, Rot3, Vector3> {
+class GTSAM_EXPORT AHRSFactor: public NoiseModelFactorN<Rot3, Rot3, Vector3> {
 
   typedef AHRSFactor This;
-  typedef NoiseModelFactor3<Rot3, Rot3, Vector3> Base;
+  typedef NoiseModelFactorN<Rot3, Rot3, Vector3> Base;
 
   PreintegratedAhrsMeasurements _PIM_;
 
@@ -208,6 +212,7 @@ private:
   friend class boost::serialization::access;
   template<class ARCHIVE>
   void serialize(ARCHIVE & ar, const unsigned int /*version*/) {
+    // NoiseModelFactor3 instead of NoiseModelFactorN for backward compatibility
     ar
         & boost::serialization::make_nvp("NoiseModelFactor3",
             boost::serialization::base_object<Base>(*this));

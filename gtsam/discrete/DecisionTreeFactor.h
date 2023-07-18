@@ -34,9 +34,12 @@
 namespace gtsam {
 
   class DiscreteConditional;
+  class HybridValues;
 
   /**
-   * A discrete probabilistic factor
+   * A discrete probabilistic factor.
+   *
+   * @ingroup discrete
    */
   class GTSAM_EXPORT DecisionTreeFactor : public DiscreteFactor,
                                           public AlgebraicDecisionTree<Key> {
@@ -95,10 +98,19 @@ namespace gtsam {
     /// @name Standard Interface
     /// @{
 
-    /// Value is just look up in AlgebraicDecisonTree
+    /// Calculate probability for given values `x`, 
+    /// is just look up in AlgebraicDecisionTree.
+    double evaluate(const DiscreteValues& values) const  {
+      return ADT::operator()(values);
+    }
+
+    /// Evaluate probability density, sugar.
     double operator()(const DiscreteValues& values) const override {
       return ADT::operator()(values);
     }
+
+    /// Calculate error for DiscreteValues `x`, is -log(probability).
+    double error(const DiscreteValues& values) const;
 
     /// multiply two factors
     DecisionTreeFactor operator*(const DecisionTreeFactor& f) const override {
@@ -170,6 +182,26 @@ namespace gtsam {
     /// Return all the discrete keys associated with this factor.
     DiscreteKeys discreteKeys() const;
 
+    /**
+     * @brief Prune the decision tree of discrete variables.
+     *
+     * Pruning will set the leaves to be "pruned" to 0 indicating a 0
+     * probability. An assignment is pruned if it is not in the top
+     * `maxNrAssignments` values.
+     *
+     * A violation can occur if there are more
+     * duplicate values than `maxNrAssignments`. A violation here is the need to
+     * un-prune the decision tree (e.g. all assignment values are 1.0). We could
+     * have another case where some subset of duplicates exist (e.g. for a tree
+     * with 8 assignments we have 1, 1, 1, 1, 0.8, 0.7, 0.6, 0.5), but this is
+     * not a violation since the for `maxNrAssignments=5` the top values are (1,
+     * 0.8).
+     *
+     * @param maxNrAssignments The maximum number of assignments to keep.
+     * @return DecisionTreeFactor
+     */
+    DecisionTreeFactor prune(size_t maxNrAssignments) const;
+
     /// @}
     /// @name Wrapper support
     /// @{
@@ -208,7 +240,27 @@ namespace gtsam {
     std::string html(const KeyFormatter& keyFormatter = DefaultKeyFormatter,
                     const Names& names = {}) const override;
 
-    /// @}
+  /// @}
+  /// @name HybridValues methods.
+  /// @{
+
+  /**
+   * Calculate error for HybridValues `x`, is -log(probability)
+   * Simply dispatches to DiscreteValues version.
+   */
+  double error(const HybridValues& values) const override;
+
+  /// @}
+
+   private:
+    /** Serialization function */
+    friend class boost::serialization::access;
+    template <class ARCHIVE>
+    void serialize(ARCHIVE& ar, const unsigned int /*version*/) {
+      ar& BOOST_SERIALIZATION_BASE_OBJECT_NVP(Base);
+      ar& BOOST_SERIALIZATION_BASE_OBJECT_NVP(ADT);
+      ar& BOOST_SERIALIZATION_NVP(cardinalities_);
+    }
   };
 
 // traits

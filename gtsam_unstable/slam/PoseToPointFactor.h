@@ -1,5 +1,5 @@
 /**
- *  @file   PoseToPointFactor.hpp
+ *  @file   PoseToPointFactor.h
  *  @brief  This factor can be used to model relative position measurements
  *  from a (2D or 3D) pose to a landmark
  *  @author David Wisth
@@ -18,13 +18,13 @@ namespace gtsam {
 
 /**
  * A class for a measurement between a pose and a point.
- * @addtogroup SLAM
+ * @ingroup slam
  */
 template<typename POSE = Pose3, typename POINT = Point3>
-class PoseToPointFactor : public NoiseModelFactor2<POSE, POINT> {
+class PoseToPointFactor : public NoiseModelFactorN<POSE, POINT> {
  private:
   typedef PoseToPointFactor This;
-  typedef NoiseModelFactor2<POSE, POINT> Base;
+  typedef NoiseModelFactorN<POSE, POINT> Base;
 
   POINT measured_; /** the point measurement in local coordinates */
 
@@ -47,7 +47,8 @@ class PoseToPointFactor : public NoiseModelFactor2<POSE, POINT> {
   /** print */
   void print(const std::string& s, const KeyFormatter& keyFormatter =
                                        DefaultKeyFormatter) const override {
-    std::cout << s << "PoseToPointFactor(" << keyFormatter(this->key1()) << ","
+    std::cout << s << "PoseToPointFactor("
+              << keyFormatter(this->key1()) << ","
               << keyFormatter(this->key2()) << ")\n"
               << "  measured: " << measured_.transpose() << std::endl;
     this->noiseModel_->print("  noise model: ");
@@ -59,6 +60,12 @@ class PoseToPointFactor : public NoiseModelFactor2<POSE, POINT> {
     const This* e = dynamic_cast<const This*>(&expected);
     return e != nullptr && Base::equals(*e, tol) &&
            traits<POINT>::Equals(this->measured_, e->measured_, tol);
+  }
+
+  /// @return a deep copy of this factor
+  gtsam::NonlinearFactor::shared_ptr clone() const override {
+    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
+        gtsam::NonlinearFactor::shared_ptr(new This(*this)));
   }
 
   /** implement functions needed to derive from Factor */
@@ -85,8 +92,10 @@ class PoseToPointFactor : public NoiseModelFactor2<POSE, POINT> {
   friend class boost::serialization::access;
   template <class ARCHIVE>
   void serialize(ARCHIVE& ar, const unsigned int /*version*/) {
+    // NoiseModelFactor2 instead of NoiseModelFactorN for backward compatibility
     ar& boost::serialization::make_nvp(
-        "NoiseModelFactor2", boost::serialization::base_object<Base>(*this));
+        "NoiseModelFactor2",
+        boost::serialization::base_object<Base>(*this));
     ar& BOOST_SERIALIZATION_NVP(measured_);
   }
 

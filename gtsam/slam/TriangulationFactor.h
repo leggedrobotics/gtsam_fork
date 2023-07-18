@@ -15,6 +15,8 @@
  * @author Frank Dellaert
  */
 
+#pragma once
+
 #include <gtsam/nonlinear/NonlinearFactor.h>
 #include <gtsam/geometry/CalibratedCamera.h>
 #include <boost/make_shared.hpp>
@@ -25,10 +27,10 @@ namespace gtsam {
 /**
  * Non-linear factor for a constraint derived from a 2D measurement.
  * The calibration and pose are assumed known.
- * @addtogroup SLAM
+ * @ingroup slam
  */
 template<class CAMERA>
-class TriangulationFactor: public NoiseModelFactor1<Point3> {
+class TriangulationFactor: public NoiseModelFactorN<Point3> {
 
 public:
 
@@ -38,7 +40,7 @@ public:
 protected:
 
   /// shorthand for base class type
-  using Base = NoiseModelFactor1<Point3>;
+  using Base = NoiseModelFactorN<Point3>;
 
   /// shorthand for this class
   using This = TriangulationFactor<CAMERA>;

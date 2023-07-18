@@ -53,8 +53,8 @@ class ExtendedKalmanFilter {
 
 #ifdef GTSAM_ALLOW_DEPRECATED_SINCE_V42
   //@deprecated: any NoiseModelFactor will do, as long as they have the right keys
-  typedef NoiseModelFactor2<VALUE, VALUE> MotionFactor;
-  typedef NoiseModelFactor1<VALUE> MeasurementFactor;
+  typedef NoiseModelFactorN<VALUE, VALUE> MotionFactor;
+  typedef NoiseModelFactorN<VALUE> MeasurementFactor;
 #endif
 
  protected:
@@ -86,8 +86,9 @@ class ExtendedKalmanFilter {
   /// @{
 
   /**
-   * Calculate predictive density P(x_) ~ \int  P(x_min) P(x_min, x_)
-   * The motion model should be given as a factor with key1 for x_min and key2_ for x
+   * Calculate predictive density
+   *     \f$ P(x_) ~ \int  P(x_min) P(x_min, x_)\f$ 
+   * The motion model should be given as a factor with key1 for \f$x_min\f$ and key2 for \f$x_\f$ 
    */
   T predict(const NoiseModelFactor& motionFactor);
 

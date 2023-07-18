@@ -31,7 +31,14 @@ namespace gtsam {
 template <class CONDITIONAL>
 void BayesNet<CONDITIONAL>::print(const std::string& s,
                                   const KeyFormatter& formatter) const {
-  Base::print(s, formatter);
+  std::cout << (s.empty() ? "" : s + " ") << std::endl;
+  std::cout << "size: " << this->size() << std::endl;
+  for (size_t i = 0; i < this->size(); i++) {
+    const auto& conditional = this->at(i);
+    std::stringstream ss;
+    ss << "conditional " << i << ": ";
+    if (conditional) conditional->print(ss.str(), formatter);
+  }
 }
 
 /* ************************************************************************* */
@@ -53,8 +60,9 @@ void BayesNet<CONDITIONAL>::dot(std::ostream& os,
     auto frontals = conditional->frontals();
     const Key me = frontals.front();
     auto parents = conditional->parents();
-    for (const Key& p : parents)
-      os << "  var" << keyFormatter(p) << "->var" << keyFormatter(me) << "\n";
+    for (const Key& p : parents) {
+      os << "  var" << p << "->var" << me << "\n";
+    }
   }
 
   os << "}";
@@ -78,6 +86,22 @@ void BayesNet<CONDITIONAL>::saveGraph(const std::string& filename,
   std::ofstream of(filename.c_str());
   dot(of, keyFormatter, writer);
   of.close();
+}
+
+/* ************************************************************************* */
+template <class CONDITIONAL>
+double BayesNet<CONDITIONAL>::logProbability(const HybridValues& x) const {
+  double sum = 0.;
+  for (const auto& gc : *this) {
+    if (gc) sum += gc->logProbability(x);
+  }
+  return sum;
+}
+
+/* ************************************************************************* */
+template <class CONDITIONAL>
+double BayesNet<CONDITIONAL>::evaluate(const HybridValues& x) const {
+  return exp(-logProbability(x));
 }
 
 /* ************************************************************************* */

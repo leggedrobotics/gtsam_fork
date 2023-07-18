@@ -40,7 +40,14 @@ class DiscreteEliminationTree;
 class DiscreteBayesTree;
 class DiscreteJunctionTree;
 
-/** Main elimination function for DiscreteFactorGraph */
+/**
+ * @brief Main elimination function for DiscreteFactorGraph.
+ * 
+ * @param factors 
+ * @param keys 
+ * @return GTSAM_EXPORT
+ * @ingroup discrete
+ */
 GTSAM_EXPORT std::pair<boost::shared_ptr<DiscreteConditional>, DecisionTreeFactor::shared_ptr>
 EliminateDiscrete(const DiscreteFactorGraph& factors, const Ordering& keys);
 
@@ -55,15 +62,24 @@ template<> struct EliminationTraits<DiscreteFactorGraph>
   typedef DiscreteBayesTree BayesTreeType;             ///< Type of Bayes tree
   typedef DiscreteJunctionTree JunctionTreeType;       ///< Type of Junction tree
   /// The default dense elimination function
-  static std::pair<boost::shared_ptr<ConditionalType>, boost::shared_ptr<FactorType> >
+  static std::pair<boost::shared_ptr<ConditionalType>,
+                   boost::shared_ptr<FactorType> >
   DefaultEliminate(const FactorGraphType& factors, const Ordering& keys) {
-    return EliminateDiscrete(factors, keys); }
+    return EliminateDiscrete(factors, keys);
+  }
+  /// The default ordering generation function
+  static Ordering DefaultOrderingFunc(
+      const FactorGraphType& graph,
+      boost::optional<const VariableIndex&> variableIndex) {
+    return Ordering::Colamd(*variableIndex);
+  }
 };
 
 /* ************************************************************************* */
 /**
  * A Discrete Factor Graph is a factor graph where all factors are Discrete, i.e.
  *   Factor == DiscreteFactor
+ * @ingroup discrete
  */
 class GTSAM_EXPORT DiscreteFactorGraph
     : public FactorGraph<DiscreteFactor>,
@@ -207,7 +223,17 @@ class GTSAM_EXPORT DiscreteFactorGraph
                    const DiscreteFactor::Names& names = {}) const;
 
   /// @}
+  /// @name HybridValues methods.
+  /// @{
+
+  using Base::error;  // Expose error(const HybridValues&) method..
+
+  /// @}
 };  // \ DiscreteFactorGraph
+
+std::pair<DiscreteConditional::shared_ptr, DecisionTreeFactor::shared_ptr>  //
+EliminateForMPE(const DiscreteFactorGraph& factors,
+                const Ordering& frontalKeys);
 
 /// traits
 template <>

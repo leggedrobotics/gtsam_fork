@@ -70,7 +70,9 @@ PYBIND11_MODULE(class_py, m_) {
         .def("set_container",[](Test* self, std::vector<testing::Test&> container){ self->set_container(container);}, py::arg("container"))
         .def("get_container",[](Test* self){return self->get_container();})
         .def("_repr_markdown_",[](Test* self, const gtsam::KeyFormatter& keyFormatter){return self->markdown(keyFormatter);}, py::arg("keyFormatter") = gtsam::DefaultKeyFormatter)
-        .def_readwrite("model_ptr", &Test::model_ptr);
+        .def_readwrite("model_ptr", &Test::model_ptr)
+        .def_readwrite("value", &Test::value)
+        .def_readwrite("name", &Test::name);
 
     py::class_<PrimitiveRef<double>, std::shared_ptr<PrimitiveRef<double>>>(m_, "PrimitiveRefDouble")
         .def(py::init<>())
@@ -105,7 +107,7 @@ PYBIND11_MODULE(class_py, m_) {
                         return redirect.str();
                     }, py::arg("s") = "factor: ", py::arg("keyFormatter") = gtsam::DefaultKeyFormatter);
 
-    py::class_<SuperCoolFactor<gtsam::Pose3>, std::shared_ptr<SuperCoolFactor<gtsam::Pose3>>>(m_, "SuperCoolFactorPose3")
+    py::class_<SuperCoolFactor<gtsam::Pose3>, std::shared_ptr<SuperCoolFactor<gtsam::Pose3>>>(m_, "SuperCoolFactorPose3");
 
 #include "python/specializations.h"
 

@@ -41,7 +41,6 @@
 #include <gtsam/base/Vector.h>
 #include <gtsam/base/types.h>
 
-#include <boost/assign/list_inserter.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
@@ -177,8 +176,8 @@ boost::optional<IndexedPose> parseVertexPose(istream &is, const string &tag) {
 }
 
 template <>
-std::map<size_t, Pose2> parseVariables<Pose2>(const std::string &filename,
-                                              size_t maxIndex) {
+GTSAM_EXPORT std::map<size_t, Pose2> parseVariables<Pose2>(
+    const std::string &filename, size_t maxIndex) {
   return parseToMap<Pose2>(filename, parseVertexPose, maxIndex);
 }
 
@@ -199,8 +198,8 @@ boost::optional<IndexedLandmark> parseVertexLandmark(istream &is,
 }
 
 template <>
-std::map<size_t, Point2> parseVariables<Point2>(const std::string &filename,
-                                                size_t maxIndex) {
+GTSAM_EXPORT std::map<size_t, Point2> parseVariables<Point2>(
+    const std::string &filename, size_t maxIndex) {
   return parseToMap<Point2>(filename, parseVertexLandmark, maxIndex);
 }
 
@@ -384,6 +383,7 @@ boost::shared_ptr<Sampler> createSampler(const SharedNoiseModel &model) {
 /* ************************************************************************* */
 // Implementation of parseMeasurements for Pose2
 template <>
+GTSAM_EXPORT
 std::vector<BinaryMeasurement<Pose2>>
 parseMeasurements(const std::string &filename,
                   const noiseModel::Diagonal::shared_ptr &model,
@@ -411,6 +411,7 @@ static BinaryMeasurement<Rot2> convert(const BinaryMeasurement<Pose2> &p) {
 }
 
 template <>
+GTSAM_EXPORT
 std::vector<BinaryMeasurement<Rot2>>
 parseMeasurements(const std::string &filename,
                   const noiseModel::Diagonal::shared_ptr &model,
@@ -426,6 +427,7 @@ parseMeasurements(const std::string &filename,
 /* ************************************************************************* */
 // Implementation of parseFactors for Pose2
 template <>
+GTSAM_EXPORT
 std::vector<BetweenFactor<Pose2>::shared_ptr>
 parseFactors<Pose2>(const std::string &filename,
                     const noiseModel::Diagonal::shared_ptr &model,
@@ -532,7 +534,7 @@ GraphAndValues load2D(const string &filename, SharedNoiseModel model,
       graph->push_back(*f);
 
       // Insert vertices if pure odometry file
-      Key key1 = (*f)->key1(), key2 = (*f)->key2();
+      Key key1 = (*f)->key<1>(), key2 = (*f)->key<2>();
       if (!initial->exists(key1))
         initial->insert(key1, Pose2());
       if (!initial->exists(key2))
@@ -584,9 +586,9 @@ void save2D(const NonlinearFactorGraph &graph, const Values &config,
   fstream stream(filename.c_str(), fstream::out);
 
   // save poses
-  for (const auto key_value : config) {
-    const Pose2 &pose = key_value.value.cast<Pose2>();
-    stream << "VERTEX2 " << key_value.key << " " << pose.x() << " " << pose.y()
+  for (const auto &key_pose : config.extract<Pose2>()) {
+    const Pose2 &pose = key_pose.second;
+    stream << "VERTEX2 " << key_pose.first << " " << pose.x() << " " << pose.y()
            << " " << pose.theta() << endl;
   }
 
@@ -600,7 +602,7 @@ void save2D(const NonlinearFactorGraph &graph, const Values &config,
       continue;
 
     const Pose2 pose = factor->measured().inverse();
-    stream << "EDGE2 " << factor->key2() << " " << factor->key1() << " "
+    stream << "EDGE2 " << factor->key<2>() << " " << factor->key<1>() << " "
            << pose.x() << " " << pose.y() << " " << pose.theta() << " "
            << RR(0, 0) << " " << RR(0, 1) << " " << RR(1, 1) << " " << RR(2, 2)
            << " " << RR(0, 2) << " " << RR(1, 2) << endl;
@@ -633,45 +635,33 @@ void writeG2o(const NonlinearFactorGraph &graph, const Values &estimate,
   auto index = [](gtsam::Key key) { return Symbol(key).index(); };
 
   // save 2D poses
-  for (const auto key_value : estimate) {
-    auto p = dynamic_cast<const GenericValue<Pose2> *>(&key_value.value);
-    if (!p)
-      continue;
-    const Pose2 &pose = p->value();
-    stream << "VERTEX_SE2 " << index(key_value.key) << " " << pose.x() << " "
+  for (const auto &pair : estimate.extract<Pose2>()) {
+    const Pose2 &pose = pair.second;
+    stream << "VERTEX_SE2 " << index(pair.first) << " " << pose.x() << " "
            << pose.y() << " " << pose.theta() << endl;
   }
 
   // save 3D poses
-  for (const auto key_value : estimate) {
-    auto p = dynamic_cast<const GenericValue<Pose3> *>(&key_value.value);
-    if (!p)
-      continue;
-    const Pose3 &pose = p->value();
+  for (const auto &pair : estimate.extract<Pose3>()) {
+    const Pose3 &pose = pair.second;
     const Point3 t = pose.translation();
     const auto q = pose.rotation().toQuaternion();
-    stream << "VERTEX_SE3:QUAT " << index(key_value.key) << " " << t.x() << " "
+    stream << "VERTEX_SE3:QUAT " << index(pair.first) << " " << t.x() << " "
            << t.y() << " " << t.z() << " " << q.x() << " " << q.y() << " "
            << q.z() << " " << q.w() << endl;
   }
 
   // save 2D landmarks
-  for (const auto key_value : estimate) {
-    auto p = dynamic_cast<const GenericValue<Point2> *>(&key_value.value);
-    if (!p)
-      continue;
-    const Point2 &point = p->value();
-    stream << "VERTEX_XY " << index(key_value.key) << " " << point.x() << " "
+  for (const auto &pair : estimate.extract<Point2>()) {
+    const Point2 &point = pair.second;
+    stream << "VERTEX_XY " << index(pair.first) << " " << point.x() << " "
            << point.y() << endl;
   }
 
   // save 3D landmarks
-  for (const auto key_value : estimate) {
-    auto p = dynamic_cast<const GenericValue<Point3> *>(&key_value.value);
-    if (!p)
-      continue;
-    const Point3 &point = p->value();
-    stream << "VERTEX_TRACKXYZ " << index(key_value.key) << " " << point.x()
+  for (const auto &pair : estimate.extract<Point3>()) {
+    const Point3 &point = pair.second;
+    stream << "VERTEX_TRACKXYZ " << index(pair.first) << " " << point.x()
            << " " << point.y() << " " << point.z() << endl;
   }
 
@@ -688,8 +678,8 @@ void writeG2o(const NonlinearFactorGraph &graph, const Values &estimate,
       }
       Matrix3 Info = gaussianModel->R().transpose() * gaussianModel->R();
       Pose2 pose = factor->measured(); //.inverse();
-      stream << "EDGE_SE2 " << index(factor->key1()) << " "
-             << index(factor->key2()) << " " << pose.x() << " " << pose.y()
+      stream << "EDGE_SE2 " << index(factor->key<1>()) << " "
+             << index(factor->key<2>()) << " " << pose.x() << " " << pose.y()
              << " " << pose.theta();
       for (size_t i = 0; i < 3; i++) {
         for (size_t j = i; j < 3; j++) {
@@ -714,16 +704,17 @@ void writeG2o(const NonlinearFactorGraph &graph, const Values &estimate,
       const Pose3 pose3D = factor3D->measured();
       const Point3 p = pose3D.translation();
       const auto q = pose3D.rotation().toQuaternion();
-      stream << "EDGE_SE3:QUAT " << index(factor3D->key1()) << " "
-             << index(factor3D->key2()) << " " << p.x() << " " << p.y() << " "
+      stream << "EDGE_SE3:QUAT " << index(factor3D->key<1>()) << " "
+             << index(factor3D->key<2>()) << " " << p.x() << " " << p.y() << " "
              << p.z() << " " << q.x() << " " << q.y() << " " << q.z() << " "
              << q.w();
 
+      // g2o's EDGE_SE3:QUAT stores information/precision of Pose3 in t,R order, unlike GTSAM:
       Matrix6 InfoG2o = I_6x6;
       InfoG2o.block<3, 3>(0, 0) = Info.block<3, 3>(3, 3); // cov translation
       InfoG2o.block<3, 3>(3, 3) = Info.block<3, 3>(0, 0); // cov rotation
-      InfoG2o.block<3, 3>(0, 3) = Info.block<3, 3>(0, 3); // off diagonal
-      InfoG2o.block<3, 3>(3, 0) = Info.block<3, 3>(3, 0); // off diagonal
+      InfoG2o.block<3, 3>(0, 3) = Info.block<3, 3>(3, 0); // off diagonal R,t -> t,R
+      InfoG2o.block<3, 3>(3, 0) = Info.block<3, 3>(0, 3); // off diagonal t,R -> R,t
 
       for (size_t i = 0; i < 6; i++) {
         for (size_t j = i; j < 6; j++) {
@@ -775,8 +766,8 @@ boost::optional<pair<size_t, Pose3>> parseVertexPose3(istream &is,
 }
 
 template <>
-std::map<size_t, Pose3> parseVariables<Pose3>(const std::string &filename,
-                                              size_t maxIndex) {
+GTSAM_EXPORT std::map<size_t, Pose3> parseVariables<Pose3>(
+    const std::string &filename, size_t maxIndex) {
   return parseToMap<Pose3>(filename, parseVertexPose3, maxIndex);
 }
 
@@ -793,8 +784,8 @@ boost::optional<pair<size_t, Point3>> parseVertexPoint3(istream &is,
 }
 
 template <>
-std::map<size_t, Point3> parseVariables<Point3>(const std::string &filename,
-                                                size_t maxIndex) {
+GTSAM_EXPORT std::map<size_t, Point3> parseVariables<Point3>(
+    const std::string &filename, size_t maxIndex) {
   return parseToMap<Point3>(filename, parseVertexPoint3, maxIndex);
 }
 
@@ -850,12 +841,12 @@ template <> struct ParseMeasurement<Pose3> {
       if (sampler)
         T12 = T12.retract(sampler->sample());
 
-      // EDGE_SE3:QUAT stores covariance in t,R order, unlike GTSAM:
+      // g2o's EDGE_SE3:QUAT stores information/precision of Pose3 in t,R order, unlike GTSAM:
       Matrix6 mgtsam;
-      mgtsam.block<3, 3>(0, 0) = m.block<3, 3>(3, 3); // cov rotation
-      mgtsam.block<3, 3>(3, 3) = m.block<3, 3>(0, 0); // cov translation
-      mgtsam.block<3, 3>(0, 3) = m.block<3, 3>(0, 3); // off diagonal
-      mgtsam.block<3, 3>(3, 0) = m.block<3, 3>(3, 0); // off diagonal
+      mgtsam.block<3, 3>(0, 0) = m.block<3, 3>(3, 3); // info rotation
+      mgtsam.block<3, 3>(3, 3) = m.block<3, 3>(0, 0); // info translation
+      mgtsam.block<3, 3>(3, 0) = m.block<3, 3>(0, 3); // off diagonal g2o t,R -> GTSAM R,t
+      mgtsam.block<3, 3>(0, 3) = m.block<3, 3>(3, 0); // off diagonal g2o R,t -> GTSAM t,R
       SharedNoiseModel model = noiseModel::Gaussian::Information(mgtsam);
 
       return BinaryMeasurement<Pose3>(
@@ -868,6 +859,7 @@ template <> struct ParseMeasurement<Pose3> {
 /* ************************************************************************* */
 // Implementation of parseMeasurements for Pose3
 template <>
+GTSAM_EXPORT
 std::vector<BinaryMeasurement<Pose3>>
 parseMeasurements(const std::string &filename,
                   const noiseModel::Diagonal::shared_ptr &model,
@@ -895,6 +887,7 @@ static BinaryMeasurement<Rot3> convert(const BinaryMeasurement<Pose3> &p) {
 }
 
 template <>
+GTSAM_EXPORT
 std::vector<BinaryMeasurement<Rot3>>
 parseMeasurements(const std::string &filename,
                   const noiseModel::Diagonal::shared_ptr &model,
@@ -910,6 +903,7 @@ parseMeasurements(const std::string &filename,
 /* ************************************************************************* */
 // Implementation of parseFactors for Pose3
 template <>
+GTSAM_EXPORT
 std::vector<BetweenFactor<Pose3>::shared_ptr>
 parseFactors<Pose3>(const std::string &filename,
                     const noiseModel::Diagonal::shared_ptr &model,

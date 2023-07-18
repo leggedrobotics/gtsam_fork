@@ -25,9 +25,7 @@
 
 #include <CppUnitLite/TestHarness.h>
 
-#include <boost/assign/list_of.hpp>
 #include <boost/range/adaptor/map.hpp>
-using namespace boost::assign;
 namespace br { using namespace boost::adaptors; using namespace boost::range; }
 
 using namespace std;
@@ -758,7 +756,7 @@ TEST(ISAM2, marginalizeLeaves1) {
 
   isam.update(factors, values, FactorIndices(), constrainedKeys);
 
-  FastList<Key> leafKeys = list_of(0);
+  FastList<Key> leafKeys {0};
   EXPECT(checkMarginalizeLeaves(isam, leafKeys));
 }
 
@@ -788,7 +786,7 @@ TEST(ISAM2, marginalizeLeaves2) {
 
   isam.update(factors, values, FactorIndices(), constrainedKeys);
 
-  FastList<Key> leafKeys = list_of(0);
+  FastList<Key> leafKeys {0};
   EXPECT(checkMarginalizeLeaves(isam, leafKeys));
 }
 
@@ -827,7 +825,7 @@ TEST(ISAM2, marginalizeLeaves3) {
 
   isam.update(factors, values, FactorIndices(), constrainedKeys);
 
-  FastList<Key> leafKeys = list_of(0);
+  FastList<Key> leafKeys {0};
   EXPECT(checkMarginalizeLeaves(isam, leafKeys));
 }
 
@@ -852,7 +850,7 @@ TEST(ISAM2, marginalizeLeaves4) {
 
   isam.update(factors, values, FactorIndices(), constrainedKeys);
 
-  FastList<Key> leafKeys = list_of(1);
+  FastList<Key> leafKeys {1};
   EXPECT(checkMarginalizeLeaves(isam, leafKeys));
 }
 
@@ -863,7 +861,7 @@ TEST(ISAM2, marginalizeLeaves5)
   ISAM2 isam = createSlamlikeISAM2();
 
   // Marginalize
-  FastList<Key> marginalizeKeys = list_of(0);
+  FastList<Key> marginalizeKeys {0};
   EXPECT(checkMarginalizeLeaves(isam, marginalizeKeys));
 }
 

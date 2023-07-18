@@ -31,6 +31,8 @@ namespace gtsam {
    * Algebraic Decision Trees fix the range to double
    * Just has some nice constructors and some syntactic sugar
    * TODO: consider eliminating this class altogether?
+   *
+   * @ingroup discrete
    */
   template <typename L>
   class GTSAM_EXPORT AlgebraicDecisionTree : public DecisionTree<L, double> {
@@ -69,7 +71,7 @@ namespace gtsam {
       static inline double id(const double& x) { return x; }
     };
 
-    AlgebraicDecisionTree() : Base(1.0) {}
+    AlgebraicDecisionTree(double leaf = 1.0) : Base(leaf) {}
 
     // Explicitly non-explicit constructor
     AlgebraicDecisionTree(const Base& add) : Base(add) {}
@@ -127,7 +129,7 @@ namespace gtsam {
         return map.at(label);
       };
       std::function<double(const double&)> op = Ring::id;
-      this->root_ = this->template convertFrom(other.root_, L_of_M, op);
+      this->root_ = DecisionTree<L, double>::convertFrom(other.root_, L_of_M, op);
     }
 
     /** sum */
@@ -156,11 +158,11 @@ namespace gtsam {
     }
 
     /// print method customized to value type `double`.
-    void print(const std::string& s,
-              const typename Base::LabelFormatter& labelFormatter =
-                  &DefaultFormatter) const {
+    void print(const std::string& s = "",
+               const typename Base::LabelFormatter& labelFormatter =
+                   &DefaultFormatter) const {
       auto valueFormatter = [](const double& v) {
-        return (boost::format("%4.4g") % v).str();
+        return (boost::format("%4.8g") % v).str();
       };
       Base::print(s, labelFormatter, valueFormatter);
     }

@@ -196,6 +196,9 @@ namespace gtsam {
     /** Compare to another factor for testing (implementing Testable) */
     bool equals(const GaussianFactor& lf, double tol = 1e-9) const override;
 
+    /// HybridValues simply extracts the \class VectorValues and calls error.
+    using GaussianFactor::error;
+
     /** 
      * Evaluate the factor error f(x). 
      * returns 0.5*[x -1]'*H*[x -1] (also see constructor documentation)
@@ -338,7 +341,7 @@ namespace gtsam {
 
     /**
      * Compute the gradient at a key:
-     *      \grad f(x_i) = \sum_j G_ij*x_j - g_i
+     *  \f$ \grad f(x_i) = \sum_j G_ij*x_j - g_i \f$
      */
     Vector gradient(Key key, const VectorValues& x) const override;
 
@@ -385,7 +388,7 @@ namespace gtsam {
 *   @param keys The variables to eliminate and their elimination ordering
 *   @return The conditional and remaining factor
 *
-*   \addtogroup LinearSolving */
+*   \ingroup LinearSolving */
 GTSAM_EXPORT std::pair<boost::shared_ptr<GaussianConditional>, boost::shared_ptr<HessianFactor> >
   EliminateCholesky(const GaussianFactorGraph& factors, const Ordering& keys);
 
@@ -403,7 +406,7 @@ GTSAM_EXPORT std::pair<boost::shared_ptr<GaussianConditional>, boost::shared_ptr
 *   @param keys The variables to eliminate and their elimination ordering
 *   @return The conditional and remaining factor
 *
-*   \addtogroup LinearSolving */
+*   \ingroup LinearSolving */
 GTSAM_EXPORT std::pair<boost::shared_ptr<GaussianConditional>, boost::shared_ptr<GaussianFactor> >
   EliminatePreferCholesky(const GaussianFactorGraph& factors, const Ordering& keys);
 

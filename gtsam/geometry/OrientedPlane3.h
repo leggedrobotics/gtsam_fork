@@ -125,16 +125,16 @@ public:
   }
 
   /// Return the normal
-  inline Unit3 normal() const {
+  inline Unit3 normal(OptionalJacobian<2, 3> H = boost::none) const {
+    if (H) *H << I_2x2, Z_2x1;
     return n_;
   }
 
   /// Return the perpendicular distance to the origin
-  inline double distance() const {
+  inline double distance(OptionalJacobian<1, 3> H = boost::none) const {
+    if (H) *H << 0,0,1;
     return d_;
   }
-
-  /// @}
 };
 
 template<> struct traits<OrientedPlane3> : public internal::Manifold<

@@ -45,7 +45,7 @@ typedef std::vector<Point2, Eigen::aligned_allocator<Point2> > Point2Vector;
 
 /// multiply with scalar
 inline Point2 operator*(double s, const Point2& p) {
-  return p * s;
+  return Point2(s * p.x(), s * p.y());
 }
 
 /*
@@ -71,6 +71,9 @@ GTSAM_EXPORT boost::optional<Point2> circleCircleIntersection(double R_d, double
  * @return list of solutions (0,1, or 2). Identical circles will return empty list, as well.
  */
 GTSAM_EXPORT std::list<Point2> circleCircleIntersection(Point2 c1, Point2 c2, boost::optional<Point2> fh);
+  
+/// Calculate the two means of a set of Point2 pairs
+GTSAM_EXPORT Point2Pair means(const std::vector<Point2Pair> &abPointPairs);
 
 /**
  * @brief Intersect 2 circles

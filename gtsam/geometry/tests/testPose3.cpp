@@ -20,15 +20,13 @@
 #include <gtsam/base/lieProxies.h>
 #include <gtsam/base/TestableAssertions.h>
 
-#include <boost/assign/std/vector.hpp> // for operator +=
-using namespace boost::assign;
-using namespace std::placeholders;
 
 #include <CppUnitLite/TestHarness.h>
 #include <cmath>
 
 using namespace std;
 using namespace gtsam;
+using namespace std::placeholders;
 
 GTSAM_CONCEPT_TESTABLE_INST(Pose3)
 GTSAM_CONCEPT_LIE_INST(Pose3)
@@ -809,11 +807,10 @@ TEST( Pose3, adjointMap) {
 TEST(Pose3, Align1) {
   Pose3 expected(Rot3(), Point3(10,10,0));
 
-  vector<Point3Pair> correspondences;
-  Point3Pair ab1(make_pair(Point3(10,10,0), Point3(0,0,0)));
-  Point3Pair ab2(make_pair(Point3(30,20,0), Point3(20,10,0)));
-  Point3Pair ab3(make_pair(Point3(20,30,0), Point3(10,20,0)));
-  correspondences += ab1, ab2, ab3;
+  Point3Pair ab1(Point3(10,10,0), Point3(0,0,0));
+  Point3Pair ab2(Point3(30,20,0), Point3(20,10,0));
+  Point3Pair ab3(Point3(20,30,0), Point3(10,20,0));
+  const vector<Point3Pair> correspondences{ab1, ab2, ab3};
 
   boost::optional<Pose3> actual = Pose3::Align(correspondences);
   EXPECT(assert_equal(expected, *actual));
@@ -825,15 +822,12 @@ TEST(Pose3, Align2) {
   Rot3 R = Rot3::RzRyRx(0.3, 0.2, 0.1);
   Pose3 expected(R, t);
 
-  vector<Point3Pair> correspondences;
   Point3 p1(0,0,1), p2(10,0,2), p3(20,-10,30);
   Point3 q1 = expected.transformFrom(p1),
          q2 = expected.transformFrom(p2),
          q3 = expected.transformFrom(p3);
-  Point3Pair ab1(make_pair(q1, p1));
-  Point3Pair ab2(make_pair(q2, p2));
-  Point3Pair ab3(make_pair(q3, p3));
-  correspondences += ab1, ab2, ab3;
+  const Point3Pair ab1{q1, p1}, ab2{q2, p2}, ab3{q3, p3};
+  const vector<Point3Pair> correspondences{ab1, ab2, ab3};
 
   boost::optional<Pose3> actual = Pose3::Align(correspondences);
   EXPECT(assert_equal(expected, *actual, 1e-5));
@@ -1133,7 +1127,7 @@ Pose3 testing_interpolate(const Pose3& t1, const Pose3& t2, double gamma) { retu
 
 TEST(Pose3, interpolateJacobians) {
   {
-    Pose3 X = Pose3::identity();
+    Pose3 X = Pose3::Identity();
     Pose3 Y(Rot3::Rz(M_PI_2), Point3(1, 0, 0));
     double t = 0.5;
     Pose3 expectedPoseInterp(Rot3::Rz(M_PI_4), Point3(0.5, -0.207107, 0)); // note: different from test above: this is full Pose3 interpolation
@@ -1147,10 +1141,10 @@ TEST(Pose3, interpolateJacobians) {
     EXPECT(assert_equal(expectedJacobianY,actualJacobianY,1e-6));
   }
   {
-    Pose3 X = Pose3::identity();
-    Pose3 Y(Rot3::identity(), Point3(1, 0, 0));
+    Pose3 X = Pose3::Identity();
+    Pose3 Y(Rot3::Identity(), Point3(1, 0, 0));
     double t = 0.3;
-    Pose3 expectedPoseInterp(Rot3::identity(), Point3(0.3, 0, 0));
+    Pose3 expectedPoseInterp(Rot3::Identity(), Point3(0.3, 0, 0));
     Matrix actualJacobianX, actualJacobianY;
     EXPECT(assert_equal(expectedPoseInterp, interpolate(X, Y, t, actualJacobianX, actualJacobianY), 1e-5));
 
@@ -1161,7 +1155,7 @@ TEST(Pose3, interpolateJacobians) {
     EXPECT(assert_equal(expectedJacobianY,actualJacobianY,1e-6));
   }
   {
-    Pose3 X = Pose3::identity();
+    Pose3 X = Pose3::Identity();
     Pose3 Y(Rot3::Rz(M_PI_2), Point3(0, 0, 0));
     double t = 0.5;
     Pose3 expectedPoseInterp(Rot3::Rz(M_PI_4), Point3(0, 0, 0));
@@ -1204,7 +1198,7 @@ TEST(Pose3, Create) {
 
 /* ************************************************************************* */
 TEST(Pose3, Print) {
-  Pose3 pose(Rot3::identity(), Point3(1, 2, 3));
+  Pose3 pose(Rot3::Identity(), Point3(1, 2, 3));
 
   // Generate the expected output
   std::string expected = "R: [\n\t1, 0, 0;\n\t0, 1, 0;\n\t0, 0, 1\n]\nt: 1 2 3\n";
